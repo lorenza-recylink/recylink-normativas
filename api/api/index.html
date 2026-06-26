@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visor Normativas · Recylink</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f9fafb; color: #111; min-height: 100vh; }
+    input, textarea, button, select { font-family: inherit; font-size: 13px; outline: none; }
+    input, textarea { background: #fff; border: 0.5px solid #d1d5db; border-radius: 8px; padding: 8px 12px; width: 100%; }
+    input:focus, textarea:focus { border-color: #2DB24A; box-shadow: 0 0 0 2px #D4EDBC; }
+    button { cursor: pointer; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    #root { max-width: 740px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef } = React;
+
+// ─── Colores Recylink ────────────────────────────────────────────────────────
+const RL = {
+  green:"#2DB24A", greenDark:"#1A7A2E", greenPale:"#D4EDBC",
+  blue:"#1A5FA8",  blueMid:"#29ABE2",   bluePale:"#D6EBF7",
+};
+
+// ─── Llamada a la API (proxy seguro) ────────────────────────────────────────
+async function callClaude(body) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+// ─── Guías normativas ────────────────────────────────────────────────────────
+const GUIAS = [
+  { label:"Ley REP",               icono:"♻" },
+  { label:"DS N°148 RESPEL",       icono:"⚠" },
+  { label:"Autorización sanitaria",icono:"🏥" },
+  { label:"SINADER / declaración", icono:"📋" },
+  { label:"Código Sanitario",      icono:"⚖" },
+  { label:"Rellenos sanitarios",   icono:"🏗" },
+  { label:"Ley 19.300 SEIA",       icono:"🌿" },
+  { label:"Residuos construcción", icono:"🧱" },
+  { label:"Economía circular",     icono:"🔄" },
+  { label:"Normativa LATAM",       icono:"🌎" },
+];
+
+// ─── Repositorio interno ─────────────────────────────────────────────────────
+const TODOS_DOCS = [
+  { id:"cu-1", fuente:"ClickUp", tipo:"Operativo", estado:"Vigente", fecha:"10/06/2026",
+    titulo:"Autorizaciones Sanitarias para Destinatarios de Residuos",
+    resumen:"El SNS autoriza y fiscaliza instalaciones de tratamiento de residuos. SINADER es declarativo. Para verificar la habilitación real de un destinatario, se debe solicitar la Resolución Sanitaria vigente.",
+    keywords:["autorización sanitaria","destinatario","residuo","sns","sinader","habilitación","tratamiento","valorización","disposición","fiscalización","resolución sanitaria","instalación","centro de acopio","gestor"],
+    paginas:["Arts. 79–80 DFL 725/1967","DS N°148","DS N°189/2008"],
+    link:"https://app.clickup.com/3017629/v/dc/2w2wx-58417/2w2wx-35977",
+    leyes:[{nombre:"DFL N°725/1967 – BCN",link:"https://www.bcn.cl/leychile/navegar?idNorma=5595"},{nombre:"SINADER – MMA",link:"https://sinader.mma.gob.cl"}]},
+  { id:"cu-2", fuente:"ClickUp", tipo:"Ambiental", estado:"Vigente / En tramitación", fecha:"10/06/2026",
+    titulo:"Ley REP: Pilas, Baterías y Componentes de Planta",
+    resumen:"DS N°22/2025 regula pilas y AEE menos de 5kg (vigente mayo 2026, metas mayo 2028). Baterías industriales más de 5kg en tramitación — consulta pública cerrada abril 2026.",
+    keywords:["ley rep","pila","batería","aparato electrónico","responsabilidad extendida del productor","valorización","reciclaje","productor","envase","embalaje","20920","ds 22"],
+    paginas:["Ley N°20.920","DS N°22/2025","Anteproyecto DS Baterías >5kg"],
+    link:"https://app.clickup.com/3017629/v/dc/2w2wx-58417/2w2wx-35977",
+    leyes:[{nombre:"Ley N°20.920 REP – BCN",link:"https://www.bcn.cl/leychile/navegar?idNorma=1090894"},{nombre:"Economía Circular MMA",link:"https://economiacircular.mma.gob.cl/baterias/"}]},
+  { id:"cu-3", fuente:"ClickUp", tipo:"Casos de Uso", estado:"En investigación", fecha:"27/05/2026",
+    titulo:"Declaración de Escombros en SINADER: Código 60",
+    resumen:"Caso Socovesa: inconsistencia en código usado por SEMOT vs Código 60 requerido. Respuesta MMA confirma competencia del SNS. Declaración pausada hasta validar con organismos competentes.",
+    keywords:["escombros","construcción y demolición","sinader","código 60","declaración","sitio de escombros","carga masiva","retc","mma","residuos de construcción"],
+    paginas:["Código 60 – Sitio Escombros","Manual Carga Masiva SINADER","OIRS MMA N°1-2026-RM-544"],
+    link:"https://app.clickup.com/3017629/v/dc/2w2wx-58417/2w2wx-35977",
+    leyes:[{nombre:"Manual Carga Masiva – SINADER",link:"https://sinader.mma.gob.cl"}]},
+  { id:"dr-1", fuente:"Drive", tipo:"Consulta Regulatoria", estado:"Respondida", fecha:"Ago 2025",
+    titulo:"Minuta Preguntas al MINSAL",
+    resumen:"Consulta formal al MINSAL sobre cuándo un material es producto y cuándo residuo (pallets, telas, textiles). Incluye respuestas oficiales sobre autorizaciones, centros de acopio y tipos de tramitación.",
+    keywords:["producto vs residuo","pallet","tela gráfica","textil","centro de acopio","valorización","autorización sanitaria","pretratamiento","reciclaje","minsal","distinción residuo"],
+    paginas:["Caso 1: Telas gráficas","Caso 2: Textiles y maquila","Criterio producto vs residuo"],
+    link:"https://docs.google.com/document/d/1MrS0I0hZ-WqKhGyuX2k_Kd3ZjDIjwOhdCnytnKjqIDI/edit", leyes:[]},
+  { id:"dr-2", fuente:"Drive", tipo:"Protocolo Interno", estado:"Vigente", fecha:"Dic 2025",
+    titulo:"Protocolo de Traspaso de Servicios Nuevos",
+    resumen:"Proceso estándar de traspaso desde Comercial hacia áreas ejecutoras para servicios nuevos. Define 6 fases con roles, tiempos y entregables.",
+    keywords:["protocolo traspaso","servicio nuevo","comercial","kickoff","proyecto","área ejecutora","propuesta","carta gantt","recylink interno"],
+    paginas:["Fase 1–6","Requerimientos por área","Carta Gantt"],
+    link:"https://docs.google.com/document/d/1jpUetGX05rpVfpi_7SOuWNsWUaa6zWp5jD6cf2dt394/edit", leyes:[]},
+  { id:"dr-3", fuente:"Drive", tipo:"Normativa LATAM", estado:"Vigente", fecha:"Jul 2024",
+    titulo:"Reglamento SINIGIR – Costa Rica (N°41525)",
+    resumen:"Reglamento para trámite digital de registros y autorizaciones del MINSAL Costa Rica en gestión integral de residuos. Regula generadores, transportistas, gestores y exportadores.",
+    keywords:["costa rica","sinigir","latam","centroamérica","autorización","minsal cr","exportador","transportista","gestor","residuos costa rica","registro digital"],
+    paginas:["Registro y Autorización","Sistema SINIGIR","Fiscalización y Sanciones"],
+    link:"https://drive.google.com/file/d/1pRinU5tBbOR5l9De7uIG4iQKEw0ic00E/view", leyes:[]},
+  { id:"dr-4", fuente:"Drive", tipo:"Documento Técnico", estado:"Vigente", fecha:"Ago 2025",
+    titulo:"Ficha Técnica Plataforma RECYLINK v2.130",
+    resumen:"Descripción técnica de la plataforma Recylink: gestión de residuos, trazabilidad, compatibilidad SINADER, marketplace de transportistas y dashboards ambientales.",
+    keywords:["plataforma recylink","sinader","marketplace","transportista","dashboard","trazabilidad","reporte pdf","cliente recylink","soporte","customer success"],
+    paginas:["Funcionalidades principales","Módulo SINADER","Soporte y acompañamiento"],
+    link:"https://docs.google.com/document/d/1o_5kbiFLTgNZF4M7zhd6ssoHMVs4cXngfliIGxIzmQ4/edit", leyes:[]}
+];
+
+const FUENTE_CFG = {
+  ClickUp:{ bg:"#EDE9FC", color:"#3730A3", dot:"#7C3AED" },
+  Drive:  { bg:"#FFF7E6", color:"#92400E", dot:"#F59E0B" },
+  Web:    { bg:"#D6EBF7", color:"#1A5FA8", dot:"#29ABE2" }
+};
+const TIPO_CFG = {
+  "Operativo":{bg:"#D4EDBC",color:"#1A7A2E"},"Ambiental":{bg:"#D4EDBC",color:"#1A7A2E"},
+  "Casos de Uso":{bg:"#FFF7E6",color:"#92400E"},"Consulta Regulatoria":{bg:"#EDE9FC",color:"#3730A3"},
+  "Protocolo Interno":{bg:"#F1F5F9",color:"#475569"},"Normativa LATAM":{bg:"#FFEAEA",color:"#991B1B"},
+  "Documento Técnico":{bg:"#D6EBF7",color:"#1A5FA8"},"Norma Internacional":{bg:"#D4EDBC",color:"#1A7A2E"},
+  "Decreto":{bg:"#FFF7E6",color:"#92400E"},"Norma Nacional":{bg:"#D4EDBC",color:"#1A7A2E"},
+  "Marco Legal":{bg:"#D4EDBC",color:"#1A7A2E"},"Reglamento":{bg:"#FFF7E6",color:"#92400E"},
+  "Plataforma":{bg:"#D6EBF7",color:"#1A5FA8"},"Portal Oficial":{bg:"#D4EDBC",color:"#1A7A2E"}
+};
+const ESTADO_CFG = {
+  "Vigente":{bg:"#D4EDBC",color:"#1A7A2E"},"En tramitación":{bg:"#FFF7E6",color:"#92400E"},
+  "Vigente / En tramitación":{bg:"#FFF7E6",color:"#92400E"},
+  "En investigación":{bg:"#FFEAEA",color:"#991B1B"},"Respondida":{bg:"#D4EDBC",color:"#1A7A2E"}
+};
+const PLANTILLAS = [
+  { label:"Cumplimiento legal", texto:"Analiza los puntos críticos de cumplimiento legal y qué acciones concretas debe tomar Recylink o el cliente." },
+  { label:"Resumen para cliente", texto:"Genera un resumen ejecutivo claro para presentar a un cliente, destacando lo más relevante sin tecnicismos." },
+  { label:"Alerta de riesgo", texto:"Identifica los principales riesgos regulatorios, contradicciones entre normativas y alertas que debemos atender." },
+];
+
+// ─── Componentes base ────────────────────────────────────────────────────────
+function Pill({ label, cfg }) {
+  return <span style={{ fontSize:10.5, fontWeight:500, padding:"2px 9px", borderRadius:20, background:cfg?.bg||"#F1F5F9", color:cfg?.color||"#475569", whiteSpace:"nowrap" }}>{label}</span>;
+}
+
+function RespuestaBox({ texto, color, titulo }) {
+  return (
+    <div style={{ marginBottom:10, borderRadius:12, overflow:"hidden", border:`0.5px solid ${color}` }}>
+      <div style={{ background:color, padding:"7px 13px", display:"flex", alignItems:"center", gap:7 }}>
+        <span>💬</span>
+        <span style={{ fontSize:12, fontWeight:600, color:"#fff" }}>{titulo}</span>
+      </div>
+      <div style={{ padding:"11px 14px", background:color===RL.green?RL.greenPale:RL.bluePale, fontSize:13, color:color===RL.green?RL.greenDark:RL.blue, lineHeight:1.7 }}>
+        {texto}
+      </div>
+    </div>
+  );
+}
+
+function Card({ doc, sel, onToggle, expanded, onExpand, resumenContextual }) {
+  const fc = FUENTE_CFG[doc.fuente]||FUENTE_CFG.Web;
+  return (
+    <div style={{ background:"#fff", border:sel?`1.5px solid ${RL.green}`:"0.5px solid #e5e7eb", borderRadius:12, padding:"13px 15px", marginBottom:7, transition:"border 0.15s" }}>
+      <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+        <input type="checkbox" checked={sel} onChange={onToggle} style={{ marginTop:4, accentColor:RL.green, cursor:"pointer", flexShrink:0 }} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:6, alignItems:"center" }}>
+            <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:10.5, fontWeight:500, padding:"2px 9px", borderRadius:20, background:fc.bg, color:fc.color }}>
+              <span style={{ width:6, height:6, borderRadius:"50%", background:fc.dot, display:"inline-block" }}></span>{doc.fuente}
+            </span>
+            <Pill label={doc.tipo} cfg={TIPO_CFG[doc.tipo]} />
+            <Pill label={doc.estado} cfg={ESTADO_CFG[doc.estado]} />
+            {doc.fecha && <span style={{ fontSize:10.5, color:"#9ca3af", marginLeft:"auto" }}>{doc.fecha}</span>}
+          </div>
+          <p style={{ margin:"0 0 5px", fontWeight:500, fontSize:13.5, color:"#111", lineHeight:1.35 }}>{doc.titulo}</p>
+          {resumenContextual && (
+            <div style={{ margin:"0 0 4px", padding:"7px 10px", background:"#f3f4f6", borderLeft:`3px solid ${RL.green}`, borderRadius:"0 8px 8px 0", fontSize:12, color:"#4b5563", lineHeight:1.6 }}>
+              {resumenContextual}
+            </div>
+          )}
+          {expanded && (
+            <div style={{ marginTop:10, paddingTop:10, borderTop:"0.5px solid #e5e7eb" }}>
+              <p style={{ fontSize:11.5, fontWeight:500, color:"#6b7280", margin:"0 0 5px" }}>Páginas / secciones</p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:9 }}>
+                {doc.paginas.map((p,i)=><span key={i} style={{ fontSize:11, padding:"2px 9px", borderRadius:20, background:"#f3f4f6", color:"#6b7280", border:"0.5px solid #e5e7eb" }}>{p}</span>)}
+              </div>
+              {doc.leyes?.length>0 && <>
+                <p style={{ fontSize:11.5, fontWeight:500, color:"#6b7280", margin:"0 0 5px" }}>Links oficiales</p>
+                <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:9 }}>
+                  {doc.leyes.map((l,i)=><a key={i} href={l.link} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:RL.blue, textDecoration:"none", fontWeight:500, display:"flex", alignItems:"center", gap:5 }}><span style={{ color:RL.blueMid }}>→</span>{l.nombre}</a>)}
+                </div>
+              </>}
+              {doc.link && <a href={doc.link} target="_blank" rel="noopener noreferrer" style={{ fontSize:12.5, fontWeight:500, color:"#fff", background:RL.green, textDecoration:"none", padding:"5px 14px", borderRadius:20, display:"inline-flex", alignItems:"center", gap:5 }}>Ver documento completo →</a>}
+            </div>
+          )}
+          <button onClick={onExpand} style={{ marginTop:7, fontSize:11.5, color:RL.green, background:"transparent", border:"none", cursor:"pointer", padding:0, fontWeight:500 }}>
+            {expanded?"Ocultar ▲":"Ver detalle ▼"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Búsqueda web ────────────────────────────────────────────────────────────
+function BusquedaWeb({ pregunta, onDocsChange }) {
+  const [estado, setEstado] = useState("pregunta");
+  const [respuesta, setRespuesta] = useState("");
+  const [resumen, setResumen] = useState("");
+  const [docs, setDocs] = useState([]);
+  const [expandidos, setExpandidos] = useState({});
+  const [sel, setSel] = useState([]);
+
+  const toggle = id => setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const toggleExp = id => setExpandidos(p=>({...p,[id]:!p[id]}));
+
+  function actualizarDocs(nuevos) { setDocs(nuevos); onDocsChange&&onDocsChange(nuevos); }
+
+  async function ejecutar() {
+    setEstado("cargando");
+    try {
+      const data = await callClaude({
+        model:"claude-sonnet-4-6", max_tokens:2000,
+        messages:[{ role:"user", content:
+`Eres experto en normativas ambientales y gestión de residuos en Chile y Latinoamérica.
+Un usuario de Recylink tiene este caso: "${pregunta}"
+1. Responde directamente en 3-5 líneas desde el punto de vista legal/normativo.
+2. Identifica el marco legal completo: leyes, decretos, reglamentos Y plataformas oficiales (SINADER, RETC, SNS, MMA, etc.).
+3. Para cada ítem indica qué parte aplica exactamente al caso.
+SOLO JSON sin backticks:
+{"respuesta":"...","resumen":"...","items":[{"id":"i1","titulo":"nombre oficial","tipo":"Marco Legal|Decreto|Reglamento|Plataforma|Portal Oficial|Norma Nacional","estado":"Vigente|En tramitación|Derogado","fecha":"año","resumenContextual":"2-3 líneas","paginas":["artículo clave"],"link":"URL oficial real","leyes":[{"nombre":"nombre","link":"URL"}]}]}`
+        }]
+      });
+      const txt = (data.content||[]).find(b=>b.type==="text")?.text||"";
+      const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
+      setRespuesta(parsed.respuesta||"");
+      setResumen(parsed.resumen||"");
+      actualizarDocs((parsed.items||[]).map((r,i)=>({...r,id:"w"+i,fuente:"Web"})));
+      setEstado("listo");
+    } catch(e) { setEstado("error"); }
+  }
+
+  if (estado==="pregunta") return (
+    <div style={{ border:`1px solid ${RL.blueMid}`, borderRadius:12, padding:"12px 14px", marginBottom:12, background:RL.bluePale, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" }}>
+      <div>
+        <p style={{ margin:0, fontSize:13, fontWeight:600, color:RL.blue }}>¿Busco normativas en internet?</p>
+        <p style={{ margin:"2px 0 0", fontSize:11.5, color:RL.blue, opacity:0.8 }}>Claude buscará el marco legal completo y portales oficiales.</p>
+      </div>
+      <div style={{ display:"flex", gap:6 }}>
+        <button onClick={()=>setEstado("omitido")} style={{ fontSize:12, padding:"5px 12px", borderRadius:20, background:"transparent", color:RL.blue, border:`0.5px solid ${RL.blue}` }}>No por ahora</button>
+        <button onClick={ejecutar} style={{ fontSize:12, fontWeight:600, background:RL.blue, color:"#fff", border:"none", borderRadius:20, padding:"5px 14px" }}>Sí, buscar →</button>
+      </div>
+    </div>
+  );
+  if (estado==="omitido") return null;
+  if (estado==="cargando") return <div style={{ textAlign:"center", padding:14, color:"#6b7280", fontSize:12.5, marginBottom:12, background:"#f3f4f6", borderRadius:12 }}>Buscando normativas en fuentes oficiales...</div>;
+  if (estado==="error") return (
+    <div style={{ padding:"12px 14px", background:"#FFEAEA", borderRadius:12, fontSize:12.5, color:"#991B1B", marginBottom:12, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+      <span>No se pudo conectar. Intenta de nuevo.</span>
+      <button onClick={ejecutar} style={{ fontSize:12, fontWeight:600, background:"#991B1B", color:"#fff", border:"none", borderRadius:20, padding:"5px 14px" }}>Reintentar</button>
+    </div>
+  );
+  return (
+    <div style={{ marginBottom:10 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+        <div style={{ width:3, height:12, background:RL.blue, borderRadius:2 }}></div>
+        <span style={{ fontSize:11.5, fontWeight:600 }}>Marco legal y plataformas</span>
+        <span style={{ fontSize:11, color:"#6b7280" }}>{docs.length} resultado{docs.length>1?"s":""}</span>
+      </div>
+      <RespuestaBox texto={respuesta} color={RL.blue} titulo="Respuesta basada en el marco legal" />
+      {resumen && <div style={{ marginBottom:10, padding:"9px 12px", background:RL.bluePale, borderLeft:`3px solid ${RL.blue}`, borderRadius:"0 10px 10px 0", fontSize:12, color:RL.blue, lineHeight:1.6 }}>{resumen}</div>}
+      {docs.map(doc=><Card key={doc.id} doc={doc} sel={sel.includes(doc.id)} onToggle={()=>toggle(doc.id)} expanded={!!expandidos[doc.id]} onExpand={()=>toggleExp(doc.id)} resumenContextual={doc.resumenContextual} />)}
+    </div>
+  );
+}
+
+// ─── Chat refinamiento ───────────────────────────────────────────────────────
+function ChatRefinamiento({ sesion, docsWeb }) {
+  const [mensajes, setMensajes] = useState([]);
+  const [input, setInput] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [abierto, setAbierto] = useState(false);
+  const bottomRef = useRef(null);
+
+  async function enviar() {
+    if (!input.trim()||cargando) return;
+    const userMsg = { rol:"user", texto:input };
+    const hist = [...mensajes, userMsg];
+    setMensajes(hist); setInput(""); setCargando(true);
+    try {
+      const data = await callClaude({
+        model:"claude-sonnet-4-6", max_tokens:600,
+        system:`Eres experto en normativas de Recylink. Caso: "${sesion.pregunta}". Docs internos: ${sesion.docs.map(d=>d.titulo).join(", ")||"ninguno"}. Normativas web: ${docsWeb.map(d=>d.titulo).join(", ")||"ninguna"}. Responde en 3-5 líneas, concreto.`,
+        messages: hist.map(m=>({ role:m.rol==="user"?"user":"assistant", content:m.texto }))
+      });
+      const resp = data.content?.find(b=>b.type==="text")?.text||"Sin respuesta.";
+      setMensajes(p=>[...p,{rol:"assistant",texto:resp}]);
+    } catch { setMensajes(p=>[...p,{rol:"assistant",texto:"Error. Intenta nuevamente."}]); }
+    setCargando(false);
+    setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),150);
+  }
+
+  return (
+    <div style={{ marginBottom:12 }}>
+      <button onClick={()=>setAbierto(!abierto)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 14px", background:abierto?"#f3f4f6":"#fff", border:"0.5px solid #e5e7eb", borderRadius:abierto?"12px 12px 0 0":12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span>💬</span>
+          <span style={{ fontSize:12.5, fontWeight:500 }}>¿El resultado no es lo que buscabas? Afínalo aquí</span>
+        </div>
+        <span style={{ fontSize:11, color:"#9ca3af" }}>{abierto?"▲":"▼"}</span>
+      </button>
+      {abierto && (
+        <div style={{ border:"0.5px solid #e5e7eb", borderTop:"none", borderRadius:"0 0 12px 12px", overflow:"hidden" }}>
+          <div style={{ maxHeight:240, overflowY:"auto", padding:"12px 14px", display:"flex", flexDirection:"column", gap:8, background:"#fff" }}>
+            {mensajes.length===0 && <p style={{ fontSize:12, color:"#9ca3af", textAlign:"center", padding:"8px 0" }}>Cuéntame qué quieres precisar...</p>}
+            {mensajes.map((m,i)=>(
+              <div key={i} style={{ display:"flex", justifyContent:m.rol==="user"?"flex-end":"flex-start" }}>
+                <div style={{ maxWidth:"85%", padding:"8px 12px", borderRadius:m.rol==="user"?"12px 12px 0 12px":"12px 12px 12px 0", background:m.rol==="user"?RL.green:"#f3f4f6", color:m.rol==="user"?"#fff":"#111", fontSize:12.5, lineHeight:1.6 }}>
+                  {m.texto}
+                </div>
+              </div>
+            ))}
+            {cargando && <div style={{ display:"flex" }}><div style={{ padding:"8px 12px", borderRadius:"12px 12px 12px 0", background:"#f3f4f6", fontSize:12, color:"#9ca3af" }}>Buscando...</div></div>}
+            <div ref={bottomRef} />
+          </div>
+          <div style={{ display:"flex", gap:6, padding:"10px 12px", borderTop:"0.5px solid #e5e7eb", background:"#f9fafb" }}>
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&enviar()} placeholder="Ej: busca algo más específico sobre..." style={{ flex:1, borderRadius:20, padding:"6px 12px", fontSize:12.5 }} />
+            <button onClick={enviar} disabled={cargando||!input.trim()} style={{ fontSize:12, fontWeight:600, background:input.trim()?RL.green:"#e5e7eb", color:input.trim()?"#fff":"#9ca3af", border:"none", borderRadius:20, padding:"6px 16px", whiteSpace:"nowrap" }}>
+              Enviar →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sesión de búsqueda ──────────────────────────────────────────────────────
+function SesionBusqueda({ sesion }) {
+  const [sel, setSel] = useState([]);
+  const [expandidos, setExpandidos] = useState({});
+  const [analisisTexto, setAnalisisTexto] = useState("");
+  const [analisisLoading, setAnalisisLoading] = useState(false);
+  const [analisisResultado, setAnalisisResultado] = useState("");
+  const [modo, setModo] = useState("analisis");
+  const [copiado, setCopiado] = useState(false);
+  const [docsWeb, setDocsWeb] = useState([]);
+  const analisisRef = useRef(null);
+
+  const toggle = id => setSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const toggleExp = id => setExpandidos(p=>({...p,[id]:!p[id]}));
+
+  async function ejecutarAnalisis() {
+    if(sel.length===0||!analisisTexto.trim()) return;
+    setAnalisisLoading(true); setAnalisisResultado("");
+    const docs=sesion.docs.filter(r=>sel.includes(r.id));
+    const lista=docs.map(d=>`- [${d.fuente}] ${d.titulo}: ${d.resumen}`).join("\n");
+    try {
+      const data = await callClaude({
+        model:"claude-sonnet-4-6", max_tokens:1000,
+        messages:[{ role:"user", content:`Eres experto en normativas de Recylink Chile.\nCaso: "${sesion.pregunta}"\nDocumentos:\n${lista}\nSolicitud: "${analisisTexto}"\nModo: ${modo==="analisis"?"análisis profundo con puntos clave, alertas y contradicciones":"resumen ejecutivo"}.\nEspañol, claro. Máx 400 palabras.` }]
+      });
+      setAnalisisResultado(data.content?.find(b=>b.type==="text")?.text||"Error.");
+    } catch { setAnalisisResultado("Error. Intenta nuevamente."); }
+    setAnalisisLoading(false);
+    setTimeout(()=>analisisRef.current?.scrollIntoView({behavior:"smooth"}),200);
+  }
+
+  function copiar(){navigator.clipboard.writeText(analisisResultado).then(()=>{setCopiado(true);setTimeout(()=>setCopiado(false),2000)});}
+  function exportar(){
+    const blob=new Blob([`ANÁLISIS RECYLINK\n${"=".repeat(40)}\nCaso: ${sesion.pregunta}\n\n${analisisResultado}`],{type:"text/plain"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="analisis-recylink.txt"; a.click();
+  }
+
+  return (
+    <div style={{ marginBottom:20, borderRadius:14, border:"0.5px solid #e5e7eb", overflow:"hidden" }}>
+      <div style={{ background:`linear-gradient(135deg, ${RL.greenPale}, ${RL.bluePale})`, padding:"12px 16px", borderBottom:"0.5px solid #e5e7eb" }}>
+        <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+          <span style={{ color:RL.greenDark, fontSize:13, marginTop:1 }}>🔍</span>
+          <span style={{ fontSize:13.5, fontWeight:600, color:RL.greenDark, lineHeight:1.4 }}>{sesion.pregunta}</span>
+        </div>
+        {sesion.resumenBusqueda && <div style={{ marginTop:8, padding:"8px 10px", background:"rgba(255,255,255,0.6)", borderRadius:8, fontSize:12, color:RL.greenDark, lineHeight:1.6 }}>{sesion.resumenBusqueda}</div>}
+      </div>
+
+      <div style={{ padding:"14px 14px 0" }}>
+        {sesion.respuestaDirecta && <RespuestaBox texto={sesion.respuestaDirecta} color={RL.green} titulo="Respuesta desde el repositorio Recylink" />}
+
+        {sesion.docs.length>0 ? (
+          <div style={{ marginBottom:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+              <div style={{ width:3, height:12, background:RL.green, borderRadius:2 }}></div>
+              <span style={{ fontSize:11.5, fontWeight:600 }}>Repositorio Recylink</span>
+              <span style={{ fontSize:11, color:"#6b7280" }}>{sesion.docs.length} coincidencia{sesion.docs.length>1?"s":""}</span>
+              {sel.length>0&&<span style={{ marginLeft:"auto", fontSize:10.5, padding:"2px 9px", borderRadius:20, background:RL.greenPale, color:RL.greenDark, fontWeight:500 }}>{sel.length} sel.</span>}
+            </div>
+            {sesion.docs.map(doc=><Card key={doc.id} doc={doc} sel={sel.includes(doc.id)} onToggle={()=>toggle(doc.id)} expanded={!!expandidos[doc.id]} onExpand={()=>toggleExp(doc.id)} resumenContextual={sesion.resumenes?.[doc.id]} />)}
+          </div>
+        ) : (
+          <div style={{ padding:"10px 12px", background:"#f3f4f6", borderRadius:10, fontSize:12.5, color:"#6b7280", marginBottom:12, lineHeight:1.6 }}>
+            No encontré documentos internos directamente relacionados con este caso.
+          </div>
+        )}
+
+        <BusquedaWeb pregunta={sesion.pregunta} onDocsChange={setDocsWeb} />
+        <ChatRefinamiento sesion={sesion} docsWeb={docsWeb} />
+
+        {sesion.docs.length>0 && (
+          <div style={{ borderTop:"0.5px solid #e5e7eb", paddingTop:12, marginBottom:14 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:9 }}>
+              <div style={{ width:3, height:12, background:RL.blue, borderRadius:2 }}></div>
+              <span style={{ fontSize:12, fontWeight:600 }}>Análisis con IA</span>
+              {sel.length===0&&<span style={{ fontSize:11, color:"#9ca3af" }}>— selecciona documentos arriba</span>}
+            </div>
+            <div style={{ display:"flex", gap:5, marginBottom:8 }}>
+              {["analisis","resumen"].map(m=>(
+                <button key={m} onClick={()=>setModo(m)} style={{ flex:1, fontSize:12, fontWeight:modo===m?600:400, background:modo===m?RL.greenPale:"transparent", color:modo===m?RL.greenDark:"#6b7280", border:`0.5px solid ${modo===m?RL.green:"#e5e7eb"}`, borderRadius:10, padding:"5px 0" }}>
+                  {m==="analisis"?"Análisis profundo":"Resumen personalizado"}
+                </button>
+              ))}
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:8 }}>
+              {PLANTILLAS.map((p,i)=><button key={i} onClick={()=>setAnalisisTexto(p.texto)} style={{ fontSize:10.5, padding:"2px 9px", borderRadius:20, background:RL.bluePale, color:RL.blue, border:"none", fontWeight:500 }}>{p.label}</button>)}
+            </div>
+            <textarea value={analisisTexto} onChange={e=>setAnalisisTexto(e.target.value)} rows={2} placeholder="¿Qué quieres analizar?" style={{ width:"100%", fontSize:12.5, resize:"vertical", marginBottom:8, borderRadius:10 }} />
+            <button onClick={ejecutarAnalisis} disabled={analisisLoading||sel.length===0||!analisisTexto.trim()}
+              style={{ width:"100%", fontSize:13, fontWeight:600, background:sel.length>0&&analisisTexto.trim()?RL.blue:"#e5e7eb", color:sel.length>0&&analisisTexto.trim()?"#fff":"#9ca3af", border:"none", borderRadius:10, padding:"8px 0", opacity:analisisLoading?0.7:1, marginBottom:analisisResultado?10:0 }}>
+              {analisisLoading?"Generando...":(modo==="analisis"?"Generar análisis →":"Generar resumen →")}
+            </button>
+            {analisisResultado && (
+              <div ref={analisisRef}>
+                <div style={{ display:"flex", justifyContent:"flex-end", gap:5, marginBottom:5 }}>
+                  <button onClick={copiar} style={{ fontSize:11, padding:"2px 10px", borderRadius:20, background:copiado?RL.greenPale:"#f3f4f6", color:copiado?RL.greenDark:"#6b7280", border:"0.5px solid #e5e7eb", fontWeight:500 }}>{copiado?"✓ Copiado":"Copiar"}</button>
+                  <button onClick={exportar} style={{ fontSize:11, padding:"2px 10px", borderRadius:20, background:RL.bluePale, color:RL.blue, border:"none", fontWeight:500 }}>Exportar .txt</button>
+                </div>
+                <div style={{ padding:"13px 15px", background:"#f3f4f6", borderRadius:10, fontSize:12.5, lineHeight:1.7, whiteSpace:"pre-wrap", borderLeft:`3px solid ${RL.green}` }}>
+                  {analisisResultado}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── App principal ───────────────────────────────────────────────────────────
+function App() {
+  const [query, setQuery] = useState("");
+  const [sesiones, setSesiones] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+  const inputRef = useRef(null);
+
+  async function buscar(q) {
+    const pregunta=(q||query).trim();
+    if(!pregunta||buscando) return;
+    setBuscando(true); setQuery("");
+    let docs=[], resumenes={}, resumenBusqueda="", respuestaDirecta="";
+    try {
+      const data = await callClaude({
+        model:"claude-sonnet-4-6", max_tokens:900,
+        messages:[{ role:"user", content:
+`El usuario describe este caso: "${pregunta}"
+
+Documentos disponibles en el repositorio Recylink:
+${TODOS_DOCS.map(d=>`- id:${d.id} | ${d.titulo} | ${d.tipo} | ${d.resumen} | Temas: ${d.keywords.join(", ")}`).join("\n")}
+
+Tareas:
+1. Responde directamente al caso en 3-5 líneas desde el punto de vista normativo, usando solo estos documentos.
+2. Selecciona SOLO los documentos que responden directamente al caso. Si ninguno aplica, ids vacío.
+3. Para cada doc seleccionado, escribe 2-3 líneas de por qué aplica.
+4. Escribe 2-3 líneas resumiendo qué encontraste.
+
+Solo JSON sin backticks:
+{"respuestaDirecta":"...","resumenBusqueda":"...","ids":["id1"],"resumenes":{"id1":"..."}}`
+        }]
+      });
+      const txt=(data.content||[]).find(b=>b.type==="text")?.text||"{}";
+      const p=JSON.parse(txt.replace(/```json|```/g,"").trim());
+      docs=(p.ids||[]).map(id=>TODOS_DOCS.find(d=>d.id===id)).filter(Boolean);
+      resumenes=p.resumenes||{}; resumenBusqueda=p.resumenBusqueda||""; respuestaDirecta=p.respuestaDirecta||"";
+    } catch(e){ docs=[]; }
+    setSesiones(prev=>[{id:Date.now(),pregunta,docs,resumenes,resumenBusqueda,respuestaDirecta},...prev]);
+    setBuscando(false);
+    setTimeout(()=>inputRef.current?.focus(),100);
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1.1rem", paddingBottom:"1rem", borderBottom:"0.5px solid #e5e7eb" }}>
+        <div style={{ display:"flex", alignItems:"baseline" }}>
+          <span style={{ fontSize:22, fontWeight:800, color:RL.green, letterSpacing:-0.5 }}>RECY</span>
+          <span style={{ fontSize:22, fontWeight:800, color:RL.blue, letterSpacing:-0.5 }}>LINK</span>
+          <span style={{ fontSize:11, color:RL.blue, marginLeft:1, verticalAlign:"super" }}>®</span>
+        </div>
+        <span style={{ fontSize:11.5, color:"#9ca3af" }}>Visor de Normativas · ClickUp + Drive + Internet</span>
+      </div>
+
+      {/* Buscador */}
+      <div style={{ background:"#fff", border:"0.5px solid #e5e7eb", borderRadius:14, padding:"1rem", marginBottom:16 }}>
+        <div style={{ position:"relative", marginBottom:9 }}>
+          <span style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", opacity:0.4, fontSize:15 }}>🔍</span>
+          <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&buscar()}
+            placeholder="Describe tu caso... Ej: cliente quiere recibir escombros sin autorización"
+            style={{ paddingLeft:34 }} />
+        </div>
+        <p style={{ fontSize:11, color:"#9ca3af", margin:"0 0 6px", fontWeight:500 }}>Agrega contexto normativo:</p>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:9 }}>
+          {GUIAS.map((g,i)=>{
+            const activa=query.toLowerCase().includes(g.label.toLowerCase());
+            return (
+              <button key={i} onClick={()=>setQuery(q=>q?q+" | "+g.label:g.label)}
+                style={{ fontSize:11, padding:"4px 10px", borderRadius:20, background:activa?RL.greenPale:"#f3f4f6", color:activa?RL.greenDark:"#6b7280", border:`0.5px solid ${activa?RL.green:"#e5e7eb"}`, display:"flex", alignItems:"center", gap:5, fontWeight:activa?500:400 }}>
+                <span>{g.icono}</span><span>{g.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={()=>buscar()} disabled={buscando||!query.trim()}
+          style={{ width:"100%", fontSize:13.5, fontWeight:600, background:buscando||!query.trim()?"#e5e7eb":RL.green, color:buscando||!query.trim()?"#9ca3af":"#fff", border:"none", borderRadius:10, padding:"9px 0", transition:"background 0.15s" }}>
+          {buscando?"Analizando el caso...":"Buscar normativas →"}
+        </button>
+      </div>
+
+      {sesiones.length===0 && (
+        <div style={{ textAlign:"center", padding:"2.5rem 1rem", color:"#9ca3af" }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🔍</div>
+          <p style={{ margin:0, fontSize:13.5, fontWeight:500, color:"#6b7280" }}>Describe un caso para comenzar</p>
+          <p style={{ margin:"4px 0 0", fontSize:12 }}>Cada consulta aparece como sección separada.</p>
+        </div>
+      )}
+
+      {sesiones.map(s=><SesionBusqueda key={s.id} sesion={s} />)}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
